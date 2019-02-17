@@ -1,0 +1,16 @@
+;; shadow-cljs configuration
+{:source-paths
+ ["src"]
+
+ :dependencies
+ [[reagent "0.8.1"]
+  [cider/cider-nrepl "0.20.1-SNAPSHOT"]
+  [thi.ng/geom "1.0.0-RC3"]
+]
+
+ :nrepl {:port 9999}
+ :builds
+ {:app {:target :browser
+        :devtools {:http-port 8089
+                   :http-root "public"}
+        :modules {:main {:init-fn cljs-gol.app/init!}}}}}
