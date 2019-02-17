@@ -18,3 +18,21 @@ body {
 .dead {
     background-color: white;
 }
+
+#stats-root {
+    display: block;
+    position: absolute;
+    font-size: 1.3em;
+    background-color: rgba(255,255,255, 60%);
+    padding: 0.5em;
+    font-family: sans-serif;
+
+}
+
+#stats-root span {
+    margin-right: 1em;
+}
+
+.stat-value {
+    font-weight: bold;
+}

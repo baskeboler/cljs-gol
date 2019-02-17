@@ -167,9 +167,20 @@
     (reset! the-universe (-> @the-universe (assoc :rendered? true)))
     (reset! the-renderer (renderer/pipeline-flush @the-renderer))))
 
+(defn stats []
+  (when @the-universe
+    [:div.stats-panel
+     [:p
+      [:span.stat-title
+        "population"]
+      [:span.stat-value (population @the-universe)]]
+     [:p
+      [:span.stat-title
+       "generation"]
+      [:span.stat-value (:frames-rendered @the-renderer)]]]))
 
 (defn mount-components! []
-  (reset! the-universe (make-universe 100 50))
+  (reset! the-universe (make-universe 100 85))
   (reset! the-renderer (renderer/new-renderer "root"))
   (swap! the-renderer renderer/add-event-listener  "click" click-handler)
   (. js/window
@@ -182,7 +193,7 @@
           (set! (.. (:ctx @the-renderer) -canvas -width) w2)
           (set! (.. (:ctx @the-renderer) -canvas -height) h2)
           (swap! the-renderer assoc :dirty? true)))))
-
+  (r/render [stats] (. js/document (getElementById "stats-root")))
   (let [the-loop  (renderer/render-loop
                    the-renderer
                    canvas-universe-update
