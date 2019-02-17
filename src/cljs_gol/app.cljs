@@ -6,7 +6,8 @@
 (defonce the-renderer (r/atom nil))
 
 (defprotocol Cells
-  (tick [this]))
+  (tick [this])
+  (population [this]))
 
 (defprotocol InsertCells
   (insert [this other x y]))
@@ -15,12 +16,13 @@
 
 (defn cell-index [u x y] (+ (* y (:width u)) x))
 (defn get-cell [u x y]
-  (when (and (< x (:width u))
-             (<= 0 x)
-             (< y (:height u))
-             (<= 0 y))
-    (let [idx (cell-index u x y)]
-      (nth (:cells u) idx))))
+  ;; (when (and
+         ;; (< x (:width u)
+         ;; (<= 0 x)
+         ;; (< y (:height u))
+         ;; (<= 0 y)
+    (let [idx (cell-index u (mod x (:width u)) (mod y (:height u)))]
+      (nth (:cells u) idx)))
 
 (defn set-cell-state [u x y state]
   (if (and (< x (:width u))
@@ -66,7 +68,8 @@
                (into []
                      (for [j (range (:height this))
                            i (range (:width this))]
-                       (next-gen this i j)))))))
+                       (next-gen this i j))))))
+  (population [this] (count (filter #(= :alive %) (:cells this)))))
 
 (extend-protocol InsertCells
   Universe
