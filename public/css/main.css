@@ -24,9 +24,9 @@ body {
     position: absolute;
     font-size: 1.3em;
     background-color: rgba(255,255,255, 60%);
-    padding: 0.5em;
+    padding: 0.3em;
     font-family: sans-serif;
-
+    text-shadow: 0 0 3px black;
 }
 
 #stats-root span {
@@ -34,5 +34,6 @@ body {
 }
 
 .stat-value {
+    color: red;
     font-weight: bold;
 }

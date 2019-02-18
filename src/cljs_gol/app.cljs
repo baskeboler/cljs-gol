@@ -180,7 +180,7 @@
       [:span.stat-value (:frames-rendered @the-renderer)]]]))
 
 (defn mount-components! []
-  (reset! the-universe (make-universe 100 85))
+  (reset! the-universe (make-universe 100 45))
   (reset! the-renderer (renderer/new-renderer "root"))
   (swap! the-renderer renderer/add-event-listener  "click" click-handler)
   (. js/window
@@ -204,14 +204,3 @@
   (println "init!")
   (mount-components!))
 
-(defn stripes []
-  (let [w 50
-        h 50
-        cells (->>
-               (for [i (range w) j (range h)]
-                 (if (= 0 (mod i 2)) :alive :dead))
-               (into []))]
-    (map->Universe {:width w
-                    :height h
-                    :cells cells
-                    :rendered? true})))
