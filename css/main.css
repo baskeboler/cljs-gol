@@ -1,0 +1,39 @@
+body {
+    margin: 0;
+    padding: 0;
+}
+.cell {
+    height: 1em;
+    width: 1em;
+    display: inline-block;
+    position: relative;
+    /* transform: rotateZ(360); */
+    /* transition: background-color 0.4s ease-out; */
+}
+
+.alive {
+    background-color: black;
+}
+
+.dead {
+    background-color: white;
+}
+
+#stats-root {
+    display: block;
+    position: absolute;
+    font-size: 1.3em;
+    background-color: rgba(255,255,255, 60%);
+    padding: 0.3em;
+    font-family: sans-serif;
+    text-shadow: 0 0 3px black;
+}
+
+#stats-root span {
+    margin-right: 1em;
+}
+
+.stat-value {
+    color: red;
+    font-weight: bold;
+}
