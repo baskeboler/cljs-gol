@@ -157,8 +157,11 @@
     :as spec}]
   (map->Rectangle (merge spec {:color color :filled? filled?})))
 
-(defn rect-sequence [rect frames src-color target-color]
-  (->>
-   (for [q (range 0 1.1 (/ 1 frames))]
-     (-> rect (assoc :color (math/mix src-color target-color q))))
-   (into [])))
+(defn rect-sequence
+  ([rect frames src-color target-color x-offset y-offset]
+   (->>
+    (for [q (range 0 1.1 (/ 1 frames))]
+      (-> rect (assoc :color (math/mix src-color target-color q))))
+    (into [])))
+  ([rect frames src-color target-color]
+   (rect-sequence rect frames src-color target-color 0 0)))

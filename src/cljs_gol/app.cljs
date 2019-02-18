@@ -13,7 +13,7 @@
 (defprotocol InsertCells
   (insert [this other x y]))
 
-(defrecord Universe [width height cells rendered?])
+(defrecord Universe [width height cells rendered? frames-per-tick frames-since-last-tick])
 
 (defn cell-index [u x y] (+ (* y (:width u)) x))
 (defn get-cell [u x y]
@@ -69,7 +69,8 @@
                (into []
                      (for [j (range (:height this))
                            i (range (:width this))]
-                       (next-gen this i j))))))
+                       (next-gen this i j))))
+        (assoc :frames-since-last-tick 0)))
   (population [this] (count (filter #(= :alive %) (:cells this)))))
 
 (extend-protocol InsertCells
@@ -93,7 +94,9 @@
      {:width w
       :height h
       :cells (vec cells)
-      :rendered? false})))
+      :rendered? false
+      :frames-per-tick 5
+      :frames-since-last-tick 0})))
 
 (defn make-creature [w h cells]
   (map->Universe
@@ -138,23 +141,35 @@
     (swap! the-universe insert (grower) u-x u-y)
     (swap! the-renderer assoc :dirty? true)))
 
+(defn maybe-tick [{:keys [frames-per-tick frames-since-last-tick] :as universe}]
+  (if (> frames-since-last-tick frames-per-tick)
+    (tick universe)
+    universe))
 (defn canvas-universe-update []
   (when (-> @the-universe :rendered?)
-    (let [new-u (-> (tick @the-universe)
+    (let [new-u (-> @the-universe
+                    (update :frames-since-last-tick inc)
+                    maybe-tick
                     (assoc :rendered? false))
           dirty? (:dirty? @the-renderer false)
+          frames (:frames-rendered @the-renderer)
           cell-w (/ (:width @the-renderer) (:width @the-universe))
           cell-h (/ (:height @the-renderer) (:height @the-universe))
           cells (for [i (range (:width new-u))
                       j (range (:height new-u))
                       :let [old-state (get-cell @the-universe i j)
                             state (get-cell new-u i j)
+                            width (:width new-u)
+                            height (:height new-u)
                             color (if (= :alive state) color/BLACK color/WHITE)
                             x (* cell-w i)
+                             ;; (mod (+ i frames) width))
                             y (* cell-h j)]
-                      :when (or
+                                 ;; (mod (+ j frames) height))]
+                      :when
+                      (or
                              dirty?
-                             (not= state old-state))]
+                            (not= state old-state))]
                      {:x x :y y :color color})
           new-renderer (reduce (fn [res {:keys [x y color] :as op}]
                                  (let [r (renderer/make-rect
@@ -164,12 +179,12 @@
                                            :h cell-h
                                            :color color
                                            :filled? true})]
-                                   (if (and (not dirty?)
-                                            (= color color/WHITE))
-                                     (renderer/animation-push res (renderer/rect-sequence r 3 color/RED color/WHITE))
-                                     (renderer/draw r res))))
-                                     
-                                   ;; (renderer/draw-rect res x y cell-w cell-h color true)))
+                                   (if (= color color/WHITE)
+                                     ;; (-> (renderer/draw r res)
+                                     (renderer/animation-push res (renderer/rect-sequence r 4 (color/rgba 0.5 0.5 0.5 0.5) (color/rgba 1 1 1 1)))
+                                     (renderer/animation-push res (renderer/rect-sequence r 4 (color/rgba 1 1 1 0.5) color/BLACK)))))
+                                     ;; (renderer/draw r res))))
+                                    ;; (renderer/draw-rect res x y cell-w cell-h color true)))
                                @the-renderer
                                cells)]
       (reset! the-universe new-u)
@@ -190,10 +205,13 @@
      [:p
       [:span.stat-title
        "generation"]
-      [:span.stat-value (:frames-rendered @the-renderer)]]]))
+      [:span.stat-value (long
+                         (/
+                           (:frames-rendered @the-renderer)
+                           (:frames-per-tick @the-universe)))]]]))
 
 (defn mount-components! []
-  (reset! the-universe (make-universe 100 45))
+  (reset! the-universe (make-universe 80 35))
   (reset! the-renderer (renderer/new-renderer "root"))
   (swap! the-renderer renderer/add-event-listener  "click" click-handler)
   (. js/window
