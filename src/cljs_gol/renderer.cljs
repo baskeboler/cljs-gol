@@ -1,5 +1,9 @@
-(ns cljs-gol.renderer)
-
+(ns cljs-gol.renderer
+    (:require [thi.ng.color.core :as colors]
+              [thi.ng.math.core :as math]
+              [thi.ng.geom.core :as geo]
+              [thi.ng.geom.vector :as vectors])
+    (:import [thi.ng.color.core.RGBA]))
 (defprotocol Renderer
   (screen-size [this])
   (draw-rect [this x y w h color filled?] [this x y w h])
@@ -9,7 +13,9 @@
   (pipeline-push [this operation])
   (last-render [this])
   (fps [this])
-  (add-event-listener [this event-name handler-fn]))
+  (add-event-listener [this event-name handler-fn])
+  (animation-push [this shape-seq])
+  (animation-step [this]))
 
 (defn calc-fps [renderer]
   (let [current-fps (:calculated-fps renderer 0)
@@ -23,21 +29,25 @@
     (-> renderer
         (assoc :first-render-time (js/Date.now)))))
 
-(defrecord CanvasRenderer [canvas ctx height width render-queue fps last-render-time frames-rendered]
+(defrecord CanvasRenderer
+    [canvas ctx height width
+     render-queue fps
+     last-render-time frames-rendered
+     animation-pipeline]
   Renderer
   (screen-size [this] [(:width this) (:height this)])
-  (draw-rect [this x y w h color filled?]
+  (draw-rect [this x y w h ^RGBA color filled?]
      (let [ctx       (:ctx this)
            render-fn (fn []
                        (cond
                          filled? (do
-                                   (set! (.-fillStyle ctx) color)
+                                   (set! (.-fillStyle ctx) @(colors/as-css color))
                                    (. ctx (fillRect x y w h)))
                          :else (do
-                                 (set! (.-strokeStyle ctx) color)
+                                 (set! (.-strokeStyle ctx) @(colors/as-css color))
                                  (. ctx (strokeRect x y w h)))))]
        (pipeline-push this render-fn)))
-  (draw-rect [this x y w h] (draw-rect this x y w h "black" true))
+  (draw-rect [this x y w h] (draw-rect this x y w h colors/BLACK true))
   (draw-text [this text ch lh cw x y bold?]
     (println text)
     this)
@@ -51,7 +61,8 @@
         (assoc :render-queue [])
         check-first-render
         (assoc :last-render-time (js/Date.now))
-        (update :frames-rendered inc)))
+        (update :frames-rendered inc)
+        animation-step))
 
   (clear-screen [this color]
     (draw-rect this 0 0 (:width this) (:height this) color true))
@@ -59,7 +70,21 @@
   (fps [this] (:fps this))
   (add-event-listener [this event-name handler-fn]
     (. (:canvas this) (addEventListener event-name handler-fn))
-    this))
+    this)
+  (animation-push [this shape-seq]
+    (-> this
+        (update :animation-pipeline conj shape-seq)))
+  (animation-step [{:keys [animation-pipeline] :as this}]
+    (let [shapes (->> (mapv first animation-pipeline)
+                      (filterv (comp not nil?)))
+          new-pipeline (->> (mapv (comp vec rest) animation-pipeline)
+                            (filterv (comp not empty?)))]
+      (-> (reduce
+           (fn [res shape]
+             (draw shape res))
+           this
+           shapes)
+          (assoc :animation-pipeline new-pipeline)))))
 
 (defn new-renderer [element-id]
   (let [canvas-parent (. js/document (getElementById element-id))
@@ -69,7 +94,7 @@
         h (.-innerHeight js/window)]
     (set! (.. ctx -canvas -width) w)
     (set! (.. ctx -canvas -height) h)
-    (set! (. ctx -strokeStyle) "white")
+    (set! (. ctx -strokeStyle) colors/WHITE)
     (. canvas-parent (appendChild canvas))
     (map->CanvasRenderer
      {:canvas canvas
@@ -93,3 +118,47 @@
         (render-fn))
       (update-fn))))
 
+
+(defprotocol PShape
+  (draw [this ^Renderer renderer] "returns the renderer")
+  (translate [this dx dy] "returns new shape")
+  (scale [this sx sy] [this q] "returns new shape")
+  (center [this]) "returns a vec2")
+
+(defrecord Rectangle [x y w h color filled?]
+  PShape
+  (draw
+    [{:keys [x y w h color filled?] :as this}
+     ^Renderer renderer]
+    (draw-rect renderer x y w h color filled?))
+  (translate [this x y]
+    (-> this
+        (update :x + x)
+        (update :y + y)))
+  (center [{:keys [x y w h] :as this}]
+    (let [upper-left (vectors/vec2 x y)
+          lower-right (math/+ upper-left (vectors/vec2 w h))]
+      (math/mix upper-left lower-right 0.5)))
+  (scale [this sx sy]
+    (-> this
+        (update :x * sx)
+        (update :y * sy)
+        (update :w * sx)
+        (update :h * sy)))
+  (scale [this q]
+    (scale this q q)))
+
+(defn normalize-color [c]
+  (colors/css c))
+
+(defn make-rect
+  [{:keys [x y w h color filled?]
+    :or {color colors/BLACK filled? true}
+    :as spec}]
+  (map->Rectangle (merge spec {:color color :filled? filled?})))
+
+(defn rect-sequence [rect frames src-color target-color]
+  (->>
+   (for [q (range 0 1.1 (/ 1 frames))]
+     (-> rect (assoc :color (math/mix src-color target-color q))))
+   (into [])))

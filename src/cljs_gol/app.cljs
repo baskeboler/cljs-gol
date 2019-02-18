@@ -1,6 +1,7 @@
 (ns cljs-gol.app
   (:require [reagent.core :as r :refer [atom]]
-            [cljs-gol.renderer :as renderer]))
+            [cljs-gol.renderer :as renderer]
+            [thi.ng.color.core :as color]))
 
 (defonce the-universe (r/atom nil))
 (defonce the-renderer (r/atom nil))
@@ -148,15 +149,27 @@
                       j (range (:height new-u))
                       :let [old-state (get-cell @the-universe i j)
                             state (get-cell new-u i j)
-                            color (if (= :alive state) "black" "white")
+                            color (if (= :alive state) color/BLACK color/WHITE)
                             x (* cell-w i)
                             y (* cell-h j)]
                       :when (or
                              dirty?
                              (not= state old-state))]
                      {:x x :y y :color color})
-          new-renderer (reduce (fn [res op]
-                                 (renderer/draw-rect res (:x op) (:y op) cell-w cell-h (:color op) true))
+          new-renderer (reduce (fn [res {:keys [x y color] :as op}]
+                                 (let [r (renderer/make-rect
+                                          {:x x
+                                           :y y
+                                           :w cell-w
+                                           :h cell-h
+                                           :color color
+                                           :filled? true})]
+                                   (if (and (not dirty?)
+                                            (= color color/WHITE))
+                                     (renderer/animation-push res (renderer/rect-sequence r 3 color/RED color/WHITE))
+                                     (renderer/draw r res))))
+                                     
+                                   ;; (renderer/draw-rect res x y cell-w cell-h color true)))
                                @the-renderer
                                cells)]
       (reset! the-universe new-u)
